@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.spatial import Delaunay
 from scipy.spatial import ConvexHull
+from colormath.color_objects import LabColor, sRGBColor
+from colormath.color_conversions import convert_color
 
 filename = '../data/old_data.csv'
 data = pd.read_csv(filename)
@@ -80,13 +82,16 @@ class ConvexHullFuzzyClassifier(object):
         y = y.apply(lambda col: col / colsum)
 
         dist = X.apply(self.min_dist, 1)
+
+        ynames = dist.apply(lambda x: np.argmax(x), 1)
         
-        return y, dist
+        return y, dist, ynames
 
 def random_cie_colors(n):
-    return pd.DataFrame({'cie_lstar': randn(n) * 10 + 50,
+    return pd.DataFrame({'cie_lstar': randn(n) * 10.0 + 60.0,
                          'cie_astar': randn(n) * 30,
-                         'cie_bstar': randn(n) * 30})
+                         'cie_bstar': randn(n) * 30},
+                        columns=['cie_lstar','cie_astar','cie_bstar'])
     
 def show_hull(cname, ccol):
     ccoords = coords[names==cname]
@@ -116,7 +121,43 @@ def show_hull(cname, ccol):
     hys = coords.ix[:,1]
     hzs = coords.ix[:,2]
     ax.scatter(hxs, hys, hzs, c=hcol, marker='o', alpha=0.2)
- 
+
+def save_page(filename, coords, names, ynames):
+    with open(filename, 'w') as outfile:
+        outfile.write('<!doctype html>')
+        outfile.write('<html>')
+        outfile.write('<head>')
+        outfile.write('</head>')
+        outfile.write('<body>')
+        outfile.write('<table>')
+        outfile.write('<tr>')
+        if names is not None:
+	    outfile.write('<th>name</th>')
+	outfile.write('<th>yname</th>')
+	outfile.write('<th>L*</th>')
+	outfile.write('<th>a*</th>')
+	outfile.write('<th>b*</th>')
+	outfile.write('<th>image</th>')
+        outfile.write('</tr>')
+        for i in range(len(ynames)):
+            lab = LabColor(coords.iloc[i,0],coords.iloc[i,1],coords.iloc[i,2])
+            rgb = convert_color(lab, sRGBColor, target_illuminant='d50')
+            r = rgb.clamped_rgb_r
+            g = rgb.clamped_rgb_g
+            b = rgb.clamped_rgb_b
+            h = sRGBColor(r,g,b).get_rgb_hex()
+            outfile.write('<tr>')
+            if names is not None:
+                outfile.write('<td>%s</td>' % names.iloc[i])
+            outfile.write('<td>%s</td>' % ynames.iloc[i])
+            outfile.write('<td>%s</td>' % coords.iloc[i,0])
+            outfile.write('<td>%s</td>' % coords.iloc[i,1])
+            outfile.write('<td>%s</td>' % coords.iloc[i,2])
+            outfile.write('<td style="background: %s">%s</td>' % (h, h))
+            outfile.write('</tr>')
+        outfile.write('</table>')
+        outfile.write('</body>')
+        outfile.write('</html>')
 
 #fig = plt.figure()
 #ax = fig.add_subplot(111, projection='3d')
@@ -141,7 +182,10 @@ def show_hull(cname, ccol):
 thresholds = [0.01,0.1,1.0]
 clf = ConvexHullFuzzyClassifier(thresholds)
 clf.fit(coords, names)
-y, dist = clf.predict(coords)
+y, dist, ynames = clf.predict(coords)
 seed(123)
-rcie = random_cie_colors(100)
-yr, distr = clf.predict(rcie)
+rcie = random_cie_colors(200)
+yr, distr, ynamesr = clf.predict(rcie)
+
+save_page('color_page.html', coords, names, ynames)
+save_page('color_rcie.html', rcie, None, ynamesr)
