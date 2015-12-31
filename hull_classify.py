@@ -5,7 +5,7 @@ import pandas as pd
 from scipy.spatial import Delaunay
 from scipy.spatial import ConvexHull
 
-filename = '../../../../data/old_data.csv'
+filename = '../data/old_data.csv'
 data = pd.read_csv(filename)
 data = data.ix[0:len(data)-5,:]
 coords = data.ix[:,2:5]
@@ -52,8 +52,12 @@ class ConvexHullFuzzyClassifier(object):
         # 0 and 1 based on those results.
         y = y.apply(lambda col: col.apply(lambda v: 0 if v < 0 else 1))
 
+        # If a point falls within two hulls, we have to normalize so that
+        # the value for all classes sum to one.
+        colsum = sum(y, 1) # compute the current col sums
+        y = y.apply(lambda col: col / colsum)
+        
         return y
-
 
 def random_cie_colors(n):
     return pd.DataFrame({'cie_lstar': randn(n) * 10 + 50,
