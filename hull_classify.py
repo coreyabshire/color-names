@@ -88,9 +88,9 @@ class ConvexHullFuzzyClassifier(object):
         return y, dist, ynames
 
 def random_cie_colors(n):
-    return pd.DataFrame({'cie_lstar': randn(n) * 10.0 + 60.0,
-                         'cie_astar': randn(n) * 30,
-                         'cie_bstar': randn(n) * 30},
+    return pd.DataFrame({'cie_lstar': np.round(randn(n) * 10.0 + 60.0, 2),
+                         'cie_astar': np.round(randn(n) * 30, 2),
+                         'cie_bstar': np.round(randn(n) * 30, 2)},
                         columns=['cie_lstar','cie_astar','cie_bstar'])
     
 def show_hull(cname, ccol):
@@ -127,10 +127,12 @@ def save_page(filename, coords, names, ynames):
         outfile.write('<!doctype html>')
         outfile.write('<html>')
         outfile.write('<head>')
+        outfile.write('<link type="text/css" rel="stylesheet" href="color_page.css">')
         outfile.write('</head>')
         outfile.write('<body>')
         outfile.write('<table>')
         outfile.write('<tr>')
+	outfile.write('<th>patch</th>')
         if names is not None:
 	    outfile.write('<th>name</th>')
 	outfile.write('<th>yname</th>')
@@ -146,12 +148,13 @@ def save_page(filename, coords, names, ynames):
             b = rgb.clamped_rgb_b
             h = sRGBColor(r,g,b).get_rgb_hex()
             outfile.write('<tr>')
+            outfile.write('<td style="background: %s"></td>' % h)
             if names is not None:
                 outfile.write('<td>%s</td>' % names.iloc[i])
-            outfile.write('<td style="background: %s">%s</td>' % (h, ynames.iloc[i]))
-            outfile.write('<td>%s</td>' % coords.iloc[i,0])
-            outfile.write('<td>%s</td>' % coords.iloc[i,1])
-            outfile.write('<td>%s</td>' % coords.iloc[i,2])
+            outfile.write('<td>%s</td>' % ynames.iloc[i])
+            outfile.write('<td class="num">%.2f</td>' % coords.iloc[i,0])
+            outfile.write('<td class="num">%.2f</td>' % coords.iloc[i,1])
+            outfile.write('<td class="num">%.2f</td>' % coords.iloc[i,2])
             outfile.write('</tr>')
         outfile.write('</table>')
         outfile.write('</body>')

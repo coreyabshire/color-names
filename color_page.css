@@ -1,0 +1,13 @@
+body, td, p {
+    font-family: Helvetica, Arial;
+    font-size: small;
+}
+tr {
+    height: 2em;
+}
+table thead {
+    position: fixed;
+}
+td.num {
+    text-align: right;
+}
