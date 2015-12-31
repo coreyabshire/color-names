@@ -26,9 +26,10 @@ c = names.apply(lambda x: namemap[x])
 
 class ConvexHullFuzzyClassifier(object):
 
-    def __init__(self):
+    def __init__(self, thresholds):
         self.hulls = {}
         self.hullsd = {}
+        self.thresholds = thresholds
 
     def fit(self, X, y):
         for yi in unique(y):
@@ -38,6 +39,27 @@ class ConvexHullFuzzyClassifier(object):
             self.hulls[yi] = hull
             hulld = Delaunay(ccoords.irow(hull.vertices))
             self.hullsd[yi] = hulld
+
+    def min_dist(self, xi):
+        d = {}
+        ks = self.hullsd.keys()
+        for yi in self.hullsd.keys():
+            h = self.hullsd[yi]
+            d[yi] = min(abs(h.plane_distance(xi)))
+        ss = sorted(ks, key=lambda k: d[k])
+        sd = dict((k,0.0) for k in ks)
+        sd[ss[0]] = d[ss[0]]
+        ssum = d[ss[0]]
+        th = 0
+        if ssum == 0:
+            sd[ss[0]] = 1.0
+            ssum = 1.0
+        else:
+            while ss[th+1] < self.thresholds[th]:
+                sd[ss[th+1]] = d[ss[th+1]]
+                ssum += d[ss[th+1]]
+                th += 1
+        return pd.Series([sd[k]/ssum for k in ks], index=ks)
 
     def predict(self, X):
         y = {}
@@ -56,8 +78,10 @@ class ConvexHullFuzzyClassifier(object):
         # the value for all classes sum to one.
         colsum = sum(y, 1) # compute the current col sums
         y = y.apply(lambda col: col / colsum)
+
+        dist = X.apply(self.min_dist, 1)
         
-        return y
+        return y, dist
 
 def random_cie_colors(n):
     return pd.DataFrame({'cie_lstar': randn(n) * 10 + 50,
@@ -114,6 +138,10 @@ def show_hull(cname, ccol):
 
 #plt.show()
 
-clf = ConvexHullFuzzyClassifier()
+thresholds = [0.01,0.1,1.0]
+clf = ConvexHullFuzzyClassifier(thresholds)
 clf.fit(coords, names)
-y = clf.predict(coords)
+y, dist = clf.predict(coords)
+seed(123)
+rcie = random_cie_colors(100)
+yr, distr = clf.predict(rcie)
