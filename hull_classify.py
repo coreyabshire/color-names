@@ -137,7 +137,6 @@ def save_page(filename, coords, names, ynames):
 	outfile.write('<th>L*</th>')
 	outfile.write('<th>a*</th>')
 	outfile.write('<th>b*</th>')
-	outfile.write('<th>image</th>')
         outfile.write('</tr>')
         for i in range(len(ynames)):
             lab = LabColor(coords.iloc[i,0],coords.iloc[i,1],coords.iloc[i,2])
@@ -149,11 +148,10 @@ def save_page(filename, coords, names, ynames):
             outfile.write('<tr>')
             if names is not None:
                 outfile.write('<td>%s</td>' % names.iloc[i])
-            outfile.write('<td>%s</td>' % ynames.iloc[i])
+            outfile.write('<td style="background: %s">%s</td>' % (h, ynames.iloc[i]))
             outfile.write('<td>%s</td>' % coords.iloc[i,0])
             outfile.write('<td>%s</td>' % coords.iloc[i,1])
             outfile.write('<td>%s</td>' % coords.iloc[i,2])
-            outfile.write('<td style="background: %s">%s</td>' % (h, h))
             outfile.write('</tr>')
         outfile.write('</table>')
         outfile.write('</body>')
