@@ -3,7 +3,6 @@ body, td, p {
     font-size: small;
 }
 tr {
-    height: 2em;
 }
 table thead {
     position: fixed;

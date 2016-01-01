@@ -42,27 +42,6 @@ class ConvexHullFuzzyClassifier(object):
             hulld = Delaunay(ccoords.irow(hull.vertices))
             self.hullsd[yi] = hulld
 
-    def min_dist(self, xi):
-        d = {}
-        ks = self.hullsd.keys()
-        for yi in self.hullsd.keys():
-            h = self.hullsd[yi]
-            d[yi] = min(abs(h.plane_distance(xi)))
-        ss = sorted(ks, key=lambda k: d[k])
-        sd = dict((k,0.0) for k in ks)
-        sd[ss[0]] = d[ss[0]]
-        ssum = d[ss[0]]
-        th = 0
-        if ssum == 0:
-            sd[ss[0]] = 1.0
-            ssum = 1.0
-        else:
-            while ss[th+1] < self.thresholds[th]:
-                sd[ss[th+1]] = d[ss[th+1]]
-                ssum += d[ss[th+1]]
-                th += 1
-        return pd.Series([sd[k]/ssum for k in ks], index=ks)
-
     def predict(self, X):
         y = {}
         np.ndarray((len(X),len(self.hullsd.keys())))
@@ -81,12 +60,57 @@ class ConvexHullFuzzyClassifier(object):
         colsum = sum(y, 1) # compute the current col sums
         y = y.apply(lambda col: col / colsum)
 
-        dist = X.apply(self.min_dist, 1)
+        # For points outside any hulls, we need a distance matrix.
+        dist = self.compute_distance_matrix(X)
+        thresh = self.apply_thresholds(dist)
 
-        ynames = dist.apply(lambda x: np.argmax(x), 1)
+        # We then apply the threshold function so that only up to 
+        # four categories are considered.
+
+        # Then for each pair of distances we apply the sigmoid function
+        # to adjust the transition between hulls, and then apply weights.
+
+        ynames = thresh.apply(lambda x: np.argmin(x), 1)
         
-        return y, dist, ynames
+        return y, dist, thresh, ynames
 
+    def compute_distance_matrix(self, X):
+        return X.apply(self.find_point_distance_vector, 1)
+
+    def find_point_distance_vector(self, xi):
+        """Finds the minimum distance of each point in xi to each hull."""
+        d = {}
+        ks = self.hullsd.keys()
+        for yi in ks:
+            h = self.hullsd[yi]
+            d[yi] = min(np.abs(h.plane_distance(xi)))
+        return pd.Series([d[k] for k in ks], index=ks)
+
+    def apply_thresholds(self, d):
+        return d.apply(self.find_vector_threshold, 1)
+
+    def find_vector_threshold(self, d):
+        ks = self.hullsd.keys()
+        ss = sorted(ks, key=lambda k: d[k])
+        sd = dict((k,9999999.0) for k in ks)
+        sd[ss[0]] = d[ss[0]]
+        ssum = d[ss[0]]
+        th = 0
+        if ssum == 0:
+            sd[ss[0]] = 1.0
+            ssum = 1.0
+        else:
+            for t in range(len(self.thresholds)):
+                j = ss[t+1] # color key to test at this t
+                if d[j] < self.thresholds[t]:
+                    sd[j] = d[j]
+                    ssum += d[j]
+                    th += 1
+                else:
+                    break
+        return pd.Series([sd[k] for k in ks], index=ks)
+
+                
 def random_cie_colors(n):
     return pd.DataFrame({'cie_lstar': np.round(randn(n) * 10.0 + 60.0, 2),
                          'cie_astar': np.round(randn(n) * 30, 2),
@@ -122,7 +146,7 @@ def show_hull(cname, ccol):
     hzs = coords.ix[:,2]
     ax.scatter(hxs, hys, hzs, c=hcol, marker='o', alpha=0.2)
 
-def save_page(filename, coords, names, ynames):
+def save_page(filename, coords, names, ynames, dist, thresh):
     with open(filename, 'w') as outfile:
         outfile.write('<!doctype html>')
         outfile.write('<html>')
@@ -139,6 +163,13 @@ def save_page(filename, coords, names, ynames):
 	outfile.write('<th>L*</th>')
 	outfile.write('<th>a*</th>')
 	outfile.write('<th>b*</th>')
+	outfile.write('<th>r</th>')
+	outfile.write('<th>g</th>')
+	outfile.write('<th>b</th>')
+        for k in thresh:
+	    outfile.write('<th>D-%s</th>' % k[:2])
+        for k in thresh:
+	    outfile.write('<th>T-%s</th>' % k[:2])
         outfile.write('</tr>')
         for i in range(len(ynames)):
             lab = LabColor(coords.iloc[i,0],coords.iloc[i,1],coords.iloc[i,2])
@@ -155,6 +186,17 @@ def save_page(filename, coords, names, ynames):
             outfile.write('<td class="num">%.2f</td>' % coords.iloc[i,0])
             outfile.write('<td class="num">%.2f</td>' % coords.iloc[i,1])
             outfile.write('<td class="num">%.2f</td>' % coords.iloc[i,2])
+            outfile.write('<td class="num">%.2f</td>' % r)
+            outfile.write('<td class="num">%.2f</td>' % g)
+            outfile.write('<td class="num">%.2f</td>' % b)
+            for k in thresh:
+	        outfile.write('<td class="num">%.1f</td>' % dist.iloc[i][k])
+            for k in thresh:
+                t = thresh.iloc[i][k]
+                if t < 9999999.00:
+	            outfile.write('<td class="num">%.1f</td>' % t)
+                else:
+	            outfile.write('<td class="num">-</td>')
             outfile.write('</tr>')
         outfile.write('</table>')
         outfile.write('</body>')
@@ -183,10 +225,10 @@ def save_page(filename, coords, names, ynames):
 thresholds = [0.01,0.1,1.0]
 clf = ConvexHullFuzzyClassifier(thresholds)
 clf.fit(coords, names)
-y, dist, ynames = clf.predict(coords)
+y, dist, thresh, ynames = clf.predict(coords)
 seed(123)
 rcie = random_cie_colors(200)
-yr, distr, ynamesr = clf.predict(rcie)
+yr, distr, threshr, ynamesr = clf.predict(rcie)
 
-save_page('color_page.html', coords, names, ynames)
-save_page('color_rcie.html', rcie, None, ynamesr)
+save_page('color_page.html', coords, names, ynames, dist, thresh)
+save_page('color_rcie.html', rcie, None, ynamesr, distr, threshr)
