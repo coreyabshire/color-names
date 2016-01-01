@@ -58,11 +58,14 @@ class ConvexHullFuzzyClassifier(object):
         # If a point falls within two hulls, we have to normalize so that
         # the value for all classes sum to one.
         colsum = sum(y, 1) # compute the current col sums
-        y = y.apply(lambda col: col / colsum)
+        inhull = colsum > 0
+        y[inhull] = y[inhull].apply(lambda col: col / colsum)
 
         # For points outside any hulls, we need a distance matrix.
         dist = self.compute_distance_matrix(X)
         thresh = self.apply_thresholds(dist)
+        for k in y:
+            y.loc[~inhull,k] = thresh[~inhull][k]
 
         # We then apply the threshold function so that only up to 
         # four categories are considered.
@@ -70,9 +73,9 @@ class ConvexHullFuzzyClassifier(object):
         # Then for each pair of distances we apply the sigmoid function
         # to adjust the transition between hulls, and then apply weights.
 
-        ynames = thresh.apply(lambda x: np.argmin(x), 1)
+        ynames = y.apply(lambda x: np.argmax(x), 1)
         
-        return y, dist, thresh, ynames
+        return y, dist, thresh, ynames, inhull
 
     def compute_distance_matrix(self, X):
         return X.apply(self.find_point_distance_vector, 1)
@@ -92,10 +95,11 @@ class ConvexHullFuzzyClassifier(object):
     def find_vector_threshold(self, d):
         ks = self.hullsd.keys()
         ss = sorted(ks, key=lambda k: d[k])
-        sd = dict((k,9999999.0) for k in ks)
+        sd = dict((k, 0.0) for k in ks)
         sd[ss[0]] = d[ss[0]]
         ssum = d[ss[0]]
         th = 0
+        inthresh = [ss[0]]
         if ssum == 0:
             sd[ss[0]] = 1.0
             ssum = 1.0
@@ -103,20 +107,38 @@ class ConvexHullFuzzyClassifier(object):
             for t in range(len(self.thresholds)):
                 j = ss[t+1] # color key to test at this t
                 if d[j] < self.thresholds[t]:
+                    inthresh.append(j)
                     sd[j] = d[j]
                     ssum += d[j]
                     th += 1
                 else:
                     break
+        if len(inthresh) == 1:
+            sd[inthresh[0]] = 1.0
+        elif len(inthresh) == 2:
+            sd[inthresh[0]] = 1.0 - sigmix(sd[inthresh[0]], sd[inthresh[1]])
+            sd[inthresh[1]] = 1.0 - sd[inthresh[0]]
+        else:
+            for i,j in [(i,i+1) for i in range(len(inthresh)-1)]:
+                a = sd[inthresh[i]]
+                b = sd[inthresh[j]]
+                total = a + b
         return pd.Series([sd[k] for k in ks], index=ks)
 
-                
+def sigmix(a, b):
+    d = (a + b)
+    beta = 1.0 / (d / 16.0)
+    x = -(d / 2.0) + a
+    return 1.0 / (1.0 + np.exp(-beta * x))
+
 def random_cie_colors(n):
     return pd.DataFrame({'cie_lstar': np.round(randn(n) * 10.0 + 60.0, 2),
                          'cie_astar': np.round(randn(n) * 30, 2),
                          'cie_bstar': np.round(randn(n) * 30, 2)},
                         columns=['cie_lstar','cie_astar','cie_bstar'])
-    
+
+
+
 def show_hull(cname, ccol):
     ccoords = coords[names==cname]
 
@@ -146,7 +168,7 @@ def show_hull(cname, ccol):
     hzs = coords.ix[:,2]
     ax.scatter(hxs, hys, hzs, c=hcol, marker='o', alpha=0.2)
 
-def save_page(filename, coords, names, ynames, dist, thresh):
+def save_page(filename, coords, names, y, ynames, dist, thresh, inhull):
     with open(filename, 'w') as outfile:
         outfile.write('<!doctype html>')
         outfile.write('<html>')
@@ -166,7 +188,10 @@ def save_page(filename, coords, names, ynames, dist, thresh):
 	outfile.write('<th>r</th>')
 	outfile.write('<th>g</th>')
 	outfile.write('<th>b</th>')
-        for k in thresh:
+	outfile.write('<th>inhull</th>')
+        for k in y:
+	    outfile.write('<th>Y-%s</th>' % k[:2])
+        for k in dist:
 	    outfile.write('<th>D-%s</th>' % k[:2])
         for k in thresh:
 	    outfile.write('<th>T-%s</th>' % k[:2])
@@ -189,12 +214,15 @@ def save_page(filename, coords, names, ynames, dist, thresh):
             outfile.write('<td class="num">%.2f</td>' % r)
             outfile.write('<td class="num">%.2f</td>' % g)
             outfile.write('<td class="num">%.2f</td>' % b)
-            for k in thresh:
-	        outfile.write('<td class="num">%.1f</td>' % dist.iloc[i][k])
+	    outfile.write('<td>%s</td>' % inhull.iloc[i])
+            for k in y:
+	        outfile.write('<td class="num">%.2f</td>' % y.iloc[i][k])
+            for k in dist:
+	        outfile.write('<td class="num">%.2f</td>' % dist.iloc[i][k])
             for k in thresh:
                 t = thresh.iloc[i][k]
-                if t < 9999999.00:
-	            outfile.write('<td class="num">%.1f</td>' % t)
+                if t > 9999999.00:
+	            outfile.write('<td class="num">%.2f</td>' % t)
                 else:
 	            outfile.write('<td class="num">-</td>')
             outfile.write('</tr>')
@@ -222,13 +250,13 @@ def save_page(filename, coords, names, ynames, dist, thresh):
 
 #plt.show()
 
-thresholds = [0.01,0.1,1.0]
+thresholds = [2.0,0.0,0.0]
 clf = ConvexHullFuzzyClassifier(thresholds)
 clf.fit(coords, names)
-y, dist, thresh, ynames = clf.predict(coords)
-seed(123)
+y, dist, thresh, ynames, inhull = clf.predict(coords)
+seed(123456)
 rcie = random_cie_colors(200)
-yr, distr, threshr, ynamesr = clf.predict(rcie)
+yr, distr, threshr, ynamesr, inhullr = clf.predict(rcie)
 
-save_page('color_page.html', coords, names, ynames, dist, thresh)
-save_page('color_rcie.html', rcie, None, ynamesr, distr, threshr)
+save_page('color_page.html', coords, names, y, ynames, dist, thresh, inhull)
+save_page('color_rcie.html', rcie, None, yr, ynamesr, distr, threshr, inhullr)
