@@ -116,7 +116,10 @@ class ConvexHullFuzzyClassifier(object):
         if len(inthresh) == 1:
             sd[inthresh[0]] = 1.0
         elif len(inthresh) == 2:
-            sd[inthresh[0]] = 1.0 - sigmix(sd[inthresh[0]], sd[inthresh[1]])
+            sd[inthresh[0]] = sigmix(sd[inthresh[0]], sd[inthresh[1]])
+            sd[inthresh[1]] = 1.0 - sd[inthresh[0]]
+        elif len(inthresh) == 3:
+            sd[inthresh[0]] = sigmix(sd[inthresh[0]], sd[inthresh[1]])
             sd[inthresh[1]] = 1.0 - sd[inthresh[0]]
         else:
             for i,j in [(i,i+1) for i in range(len(inthresh)-1)]:
@@ -125,11 +128,25 @@ class ConvexHullFuzzyClassifier(object):
                 total = a + b
         return pd.Series([sd[k] for k in ks], index=ks)
 
+    def hull_centroid(self, k):
+        return self.hullsd[k].points.mean(0)
+
+def point_lab(p):
+    return LabColor(p[0],p[1],p[2])
+
+def point_rgb(p):
+    return convert_color(point_lab(p), sRGBColor)
+    
+def point_rgb255(p):
+    rgb = point_rgb(p)
+    return np.array([rgb.clamped_rgb_r * 255.0,
+                     rgb.clamped_rgb_g * 255.0,
+                     rgb.clamped_rgb_b * 255.0])
 def sigmix(a, b):
     d = (a + b)
     beta = 1.0 / (d / 16.0)
     x = -(d / 2.0) + a
-    return 1.0 / (1.0 + np.exp(-beta * x))
+    return 1.0 - (1.0 / (1.0 + np.exp(-beta * x)))
 
 def random_cie_colors(n):
     return pd.DataFrame({'cie_lstar': np.round(randn(n) * 10.0 + 60.0, 2),
@@ -242,7 +259,12 @@ def save_page(filename, coords, names, y, ynames, dist, thresh, inhull):
 #show_hull('GREEN', 'green')
 #show_hull('BLUECYAN', 'blue')
 
-
+def make_cie_gradient(n, a, b):
+    x = np.linspace(1.0, 0.0, n)
+    return pd.DataFrame({'cie_lstar': a[0] * x + b[0] * (1.0-x),
+                         'cie_astar': a[1] * x + b[1] * (1.0-x),
+                         'cie_bstar': a[2] * x + b[2] * (1.0-x)},
+                        columns=['cie_lstar','cie_astar','cie_bstar'])
 
 #ax.set_xlabel('CIE A*')
 #ax.set_ylabel('CIE L*')
@@ -253,10 +275,16 @@ def save_page(filename, coords, names, y, ynames, dist, thresh, inhull):
 thresholds = [2.0,0.0,0.0]
 clf = ConvexHullFuzzyClassifier(thresholds)
 clf.fit(coords, names)
+
 y, dist, thresh, ynames, inhull = clf.predict(coords)
+save_page('color_page.html', coords, names, y, ynames, dist, thresh, inhull)
+
 seed(123456)
 rcie = random_cie_colors(200)
 yr, distr, threshr, ynamesr, inhullr = clf.predict(rcie)
-
-save_page('color_page.html', coords, names, y, ynames, dist, thresh, inhull)
 save_page('color_rcie.html', rcie, None, yr, ynamesr, distr, threshr, inhullr)
+
+gcie = make_cie_gradient(200, clf.hull_centroid('RED'),
+                         clf.hull_centroid('ORANGE'))
+yg, distg, threshg, ynamesg, inhullg = clf.predict(gcie)
+save_page('color_gcie.html', gcie, None, yg, ynamesg, distg, threshg, inhullg)
