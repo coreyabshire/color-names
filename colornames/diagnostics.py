@@ -1,14 +1,10 @@
-import random
 import numpy as np
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
 import pandas as pd
-from scipy.spatial import Delaunay
-from scipy.spatial import ConvexHull
-from colormath.color_objects import LabColor, sRGBColor
 from colormath.color_conversions import convert_color
-from pointTriangleDistance import pointTriangleDistance
-from colornames.convex_hull_classifier import ConvexHullClassifier
+from colormath.color_objects import LabColor, sRGBColor
+from scipy.spatial import ConvexHull
+from scipy.spatial import Delaunay
+
 
 def point_lab(p):
     return LabColor(p[0],p[1],p[2])
@@ -59,7 +55,7 @@ def show_hull(cname, ccol):
     hzs = coords.ix[:,2]
     ax.scatter(hxs, hys, hzs, c=hcol, marker='o', alpha=0.2)
 
-def write_diagnostic_html(filename, coords, names, y, ynames, dist, thresh, inhull):
+def write_diagnostic_html(filename, coords, names, y, ynames, dist, thresh, inhull, numhulls):
     with open(filename, 'w') as outfile:
         outfile.write('<!doctype html>')
         outfile.write('<html>')
@@ -80,6 +76,7 @@ def write_diagnostic_html(filename, coords, names, y, ynames, dist, thresh, inhu
 	outfile.write('<th>g</th>')
 	outfile.write('<th>b</th>')
 	outfile.write('<th>inhull</th>')
+	outfile.write('<th>numhulls</th>')
         for k in y:
 	    outfile.write('<th>Y-%s</th>' % k[:2])
         for k in dist:
@@ -106,6 +103,7 @@ def write_diagnostic_html(filename, coords, names, y, ynames, dist, thresh, inhu
             outfile.write('<td class="num">%.2f</td>' % g)
             outfile.write('<td class="num">%.2f</td>' % b)
 	    outfile.write('<td>%s</td>' % inhull.iloc[i])
+	    outfile.write('<td>%s</td>' % numhulls.iloc[i])
             for k in y:
 	        outfile.write('<td class="num">%.2f</td>' % y.iloc[i][k])
             for k in dist:

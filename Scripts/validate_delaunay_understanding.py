@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial import Delaunay, ConvexHull
-from pointTriangleDistance import pointTriangleDistance
 
+from colornames import pointTriangleDistance
 
 ps = np.array([[ 0.0, -1.0,  1.0],
                [ 0.0,  1.0,  1.0],
