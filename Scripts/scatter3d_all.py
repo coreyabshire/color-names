@@ -3,7 +3,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import pandas as pd
 
-filename = '../../../../data/old_data.csv'
+filename = '../../data/old_data.csv'
 data = pd.read_csv(filename)
 data = data.ix[0:len(data)-5,:]
 coords = data.ix[:,2:5]

@@ -57,6 +57,7 @@ class ConvexHullClassifier(object):
         # the value for all classes sum to one.
         colsum = np.sum(y, 1) # compute the current col sums
         inhull = colsum > 0
+        numhulls = colsum
         y[inhull] = y[inhull].apply(lambda c: c / colsum)
 
         # For points outside any hulls, we need a distance matrix.
@@ -67,7 +68,7 @@ class ConvexHullClassifier(object):
 
         ynames = y.apply(lambda x: np.argmax(x), 1)
         
-        return y, dist, thresh, ynames, inhull
+        return y, dist, thresh, ynames, inhull, numhulls
 
     def distance_vector(self, xi):
         """Finds the minimum distance of each point in xi to each hull."""
