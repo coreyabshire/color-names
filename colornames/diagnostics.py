@@ -9,14 +9,17 @@ from scipy.spatial import Delaunay
 def point_lab(p):
     return LabColor(p[0],p[1],p[2])
 
+
 def point_rgb(p):
     return convert_color(point_lab(p), sRGBColor)
-    
+
+
 def point_rgb255(p):
     rgb = point_rgb(p)
     return np.array([rgb.clamped_rgb_r * 255.0,
                      rgb.clamped_rgb_g * 255.0,
                      rgb.clamped_rgb_b * 255.0])
+
 
 def random_cie_colors(n):
     return pd.DataFrame({'cie_lstar': np.round(np.random.randn(n) * 10.0 + 60.0, 2),
@@ -55,7 +58,7 @@ def show_hull(cname, ccol):
     hzs = coords.ix[:,2]
     ax.scatter(hxs, hys, hzs, c=hcol, marker='o', alpha=0.2)
 
-def write_diagnostic_html(filename, coords, names, y, ynames, dist, thresh, inhull, numhulls):
+def write_diagnostic_html(filename, coords, names, y, ynames, dist, thresh, inhull, numhulls, selected=None):
     with open(filename, 'w') as outfile:
         outfile.write('<!doctype html>')
         outfile.write('<html>')
@@ -65,24 +68,26 @@ def write_diagnostic_html(filename, coords, names, y, ynames, dist, thresh, inhu
         outfile.write('<body>')
         outfile.write('<table>')
         outfile.write('<tr>')
-	outfile.write('<th>patch</th>')
+        outfile.write('<th>patch</th>')
         if names is not None:
-	    outfile.write('<th>name</th>')
-	outfile.write('<th>yname</th>')
-	outfile.write('<th>L*</th>')
-	outfile.write('<th>a*</th>')
-	outfile.write('<th>b*</th>')
-	outfile.write('<th>r</th>')
-	outfile.write('<th>g</th>')
-	outfile.write('<th>b</th>')
-	outfile.write('<th>inhull</th>')
-	outfile.write('<th>numhulls</th>')
+            outfile.write('<th>name</th>')
+        outfile.write('<th>yname</th>')
+        outfile.write('<th>L*</th>')
+        outfile.write('<th>a*</th>')
+        outfile.write('<th>b*</th>')
+        outfile.write('<th>r</th>')
+        outfile.write('<th>g</th>')
+        outfile.write('<th>b</th>')
+        if selected is not None:
+            outfile.write('<th>selected</th>')
+        outfile.write('<th>inhull</th>')
+        outfile.write('<th>numhulls</th>')
         for k in y:
-	    outfile.write('<th>Y-%s</th>' % k[:2])
+            outfile.write('<th>Y-%s</th>' % k[:2])
         for k in dist:
-	    outfile.write('<th>D-%s</th>' % k[:2])
+            outfile.write('<th>D-%s</th>' % k[:2])
         for k in thresh:
-	    outfile.write('<th>T-%s</th>' % k[:2])
+            outfile.write('<th>T-%s</th>' % k[:2])
         outfile.write('</tr>')
         for i in range(len(ynames)):
             lab = LabColor(coords.iloc[i,0],coords.iloc[i,1],coords.iloc[i,2])
@@ -102,18 +107,20 @@ def write_diagnostic_html(filename, coords, names, y, ynames, dist, thresh, inhu
             outfile.write('<td class="num">%.2f</td>' % r)
             outfile.write('<td class="num">%.2f</td>' % g)
             outfile.write('<td class="num">%.2f</td>' % b)
-	    outfile.write('<td>%s</td>' % inhull.iloc[i])
-	    outfile.write('<td>%s</td>' % numhulls.iloc[i])
+            if selected is not None:
+                outfile.write('<td>%s</td>' % selected.iloc[i])
+            outfile.write('<td>%s</td>' % inhull.iloc[i])
+            outfile.write('<td>%s</td>' % numhulls.iloc[i])
             for k in y:
-	        outfile.write('<td class="num">%.2f</td>' % y.iloc[i][k])
+                outfile.write('<td class="num">%.2f</td>' % y.iloc[i][k])
             for k in dist:
-	        outfile.write('<td class="num">%.2f</td>' % dist.iloc[i][k])
+                outfile.write('<td class="num">%.2f</td>' % dist.iloc[i][k])
             for k in thresh:
                 t = thresh.iloc[i][k]
                 if t > 9999999.00:
-	            outfile.write('<td class="num">%.2f</td>' % t)
+                    outfile.write('<td class="num">%.2f</td>' % t)
                 else:
-	            outfile.write('<td class="num">-</td>')
+                    outfile.write('<td class="num">-</td>')
             outfile.write('</tr>')
         outfile.write('</table>')
         outfile.write('</body>')
