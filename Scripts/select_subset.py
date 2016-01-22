@@ -14,19 +14,23 @@ new_data = pd.read_csv(new_data_filename)
 new_coords = new_data.ix[:, 2:5]
 
 y, dist, thresh, ynames, inhull, numhulls = clf.predict(new_coords)
-write_diagnostic_html('../color_new.html', new_coords, None, y, ynames, dist, thresh, inhull, numhulls)
 
 dist_sort = dist.values
 dist_sort.sort(axis=1)
 dist_sort = pd.DataFrame(dist_sort, dist.index)
 dist_sort.columns = ['dist_sort_%s' % c for c in dist_sort.columns]
 
-rank = dist_sort.iloc[:, 0].copy()
-rank.columns = ['rank']
-rank[numhulls == 0] = 0
-rank[numhulls >= 2] = 0
+dist0 = dist_sort.iloc[:, 0].copy()
 
-subset = pd.concat([new_data, rank, inhull, numhulls, dist_sort.iloc[:, 0:3]], axis=1)
-subset.columns = ['line_num', 'color_patch', 'cie_lstar', 'cie_astar', 'cie_bstar', 'rank', 'inhull', 'numhulls', 'dist0', 'dist1', 'dist2']
-subset = subset.sort('rank')
+selected = (
+    (numhulls < 1) |
+    (numhulls > 1) |
+    ((ynames == 'NEUTRAL') & (dist0 < 1.0)) |
+    ((ynames != 'NEUTRAL') & (dist0 < 3.0)))
+
+write_diagnostic_html('../color_new.html', new_coords, None, y, ynames, dist, thresh, inhull, numhulls, selected)
+
+subset = pd.concat([new_data, selected, inhull, numhulls, dist_sort.iloc[:, 0:3]], axis=1)
+subset.columns = ['line_num', 'color_patch', 'cie_lstar', 'cie_astar', 'cie_bstar',
+                  'selected', 'inhull', 'numhulls', 'dist0', 'dist1', 'dist2']
 subset.to_csv('../subset.csv', index=False)
