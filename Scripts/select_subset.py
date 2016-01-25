@@ -21,12 +21,13 @@ dist_sort = pd.DataFrame(dist_sort, dist.index)
 dist_sort.columns = ['dist_sort_%s' % c for c in dist_sort.columns]
 
 dist0 = dist_sort.iloc[:, 0].copy()
+dist1 = dist_sort.iloc[:, 1].copy()
 
 selected = (
     (numhulls < 1) |
     (numhulls > 1) |
-    ((ynames == 'NEUTRAL') & (dist0 < 1.0)) |
-    ((ynames != 'NEUTRAL') & (dist0 < 3.0)))
+    ((ynames == 'NEUTRAL') & (dist0 < 1.0) & (dist1 < 10.0)) |
+    ((ynames != 'NEUTRAL') & (dist0 < 3.0) & (dist1 < 10.0)))
 
 write_diagnostic_html('../color_new.html', new_coords, None, y, ynames, dist, thresh, inhull, numhulls, selected)
 

@@ -71,6 +71,7 @@ def write_diagnostic_html(filename, coords, names, y, ynames, dist, thresh, inhu
         outfile.write('<th>patch</th>')
         if names is not None:
             outfile.write('<th>name</th>')
+        outfile.write('<th>linenum</th>')
         outfile.write('<th>yname</th>')
         outfile.write('<th>L*</th>')
         outfile.write('<th>a*</th>')
@@ -100,6 +101,7 @@ def write_diagnostic_html(filename, coords, names, y, ynames, dist, thresh, inhu
             outfile.write('<td style="background: %s"></td>' % h)
             if names is not None:
                 outfile.write('<td>%s</td>' % names.iloc[i])
+            outfile.write('<td class="num">%s</td>' % (i + 1))
             outfile.write('<td>%s</td>' % ynames.iloc[i])
             outfile.write('<td class="num">%.2f</td>' % coords.iloc[i,0])
             outfile.write('<td class="num">%.2f</td>' % coords.iloc[i,1])
